@@ -1,15 +1,16 @@
 #!/bin/bash
 
 # Author: Joel Holder
-# Description: Does the following things:
-#				1. recursively opens files that match filter and replaces $search with $replace in content.  
-#				2. recursively renames files that match filter by replacing $search with $replace in file name.
-# Example Usage: converter.sh "./Dir" "*.txt" "foo" "bar"
+# Description:  
+#				This script can be used to make filesystem changes changes on mass.  It will drill through directory heirarchies and modify names and content.
 #
-# Dev: Basecases -GNU find one liners
-#	find . -type f -exec sed -i 's/FOO/BAR/g;s/$/\r/g' {} +
-#	find . -name '*-FOO-*' -exec bash -c 'mv $0 ${0/FOO/BAR}' {} +
-# Note On Scoping:
+#				Does the following things:
+#				1. recursively opens all text files in a directory and replaces $search with $replace in content.  
+#				2. recursively renames files in a directory by replacing $search with $replace in file and directory names.
+#
+# Example Usage: converter.sh "./project" "foo" "bar"
+#
+# Note On Scoping with find:
 #   use + for all files
 #   use \; for first file
 
@@ -21,11 +22,11 @@ replace_content() {
 	replace=$3
 
 	# ReAdd Windows line endings if we're in Windows
-	# os=$(uname -a)
-	# if [[ $os == *"CYGWIN_NT"* ]]
-	# then
-	#   winEOL=';s/$/\r/g'
-	# fi
+	os=$(uname -a)
+	if [[ $os == *"CYGWIN_NT"* ]]
+	then
+	  winEOL=';s/$/\r/g'
+	fi
 
 	echo 'dir: '$dir
 	echo 'search: '$search
@@ -48,36 +49,36 @@ replace_content() {
 
 rename_files() {
 
-	dir=$1
+	startDir=$1
 	search=$2
 	replace=$3
 
-	for file in $(find $dir -name "*" | sort -r)
-	do
-		renamedFile=$(echo $file | sed -e 's/'$search'/'$replace'/g')
-		echo "file: "$file
+	#todo: combine these
 
-	 	fileDir=$(dirname $renamedFile)
-	 	if [ ! -d "$fileDir" ]; then
-	 		echo "fileDir: "$fileDir
-	 		mkdir -p $fileDir
-	 	fi
-	 	
-	 	if [ "$file" != "$renamedFile" ]; then
-			
-			#remove and pass over this iteration if its a renamed empty directory
-			if [ ! "$(ls -A $file)" ]; then
-				 if [ -d "$file" ]; then
-				 	if grep -q "$search" <<<$file; then
-				 		rm -rf $file
-			     		continue
-			     	fi
-			     fi
+	#rename the directories, ensuring folders are ready for files
+	for dir in $(find $startDir -name '*' -type d)
+	do
+		renamedDir=$(echo $dir | sed -e 's/'$search'/'$replace'/g')
+
+		if [ "$dir" != "$renamedDir" ]; then
+	 		if [[ ! -e $renamedDir ]]; then
+			    rename $search $replace $dir
 			fi
-	 		
-	 		mv "$file" "$renamedFile"
 	 	fi
 	done
+
+
+
+	#rename the files
+	for file in $(find $startDir -name '*' -type f)
+	do
+		renamedFile=$(echo $file | sed -e 's/'$search'/'$replace'/g')
+	 	if [ "$file" != "$renamedFile" ]; then
+	 		rename $search $replace $file
+	 	fi
+	done
+
+	
 
 }
 
@@ -86,7 +87,7 @@ backup_directory() {
 
 	dir=$1
 	archive_file=archive-$(date +%s).tar.gz
-	tar -czvf $archive_file $dir --exclude="$archive_file" --ignore-failed-read
+	tar -czf $archive_file $dir --exclude="$archive_file" --ignore-failed-read
 
 	exitcode=$?
 
@@ -101,7 +102,7 @@ isDosFile() {
 }
 
 isNixFile() {
-   ! isDosFile $1
+   return ! isDosFile $1
 }
 
 #RUN
@@ -110,7 +111,7 @@ dir=$1
 search=$2
 replace=$3
 
-filter='*' #hard time with this because star is expanding to files list before getting passed into main script.  Needs to be this on cli: '*'
+#filter='*' #hard time with this because star is expanding to files list before getting passed into main script.  Needs to be this on cli: '*'
 
 ##example
 #dir="./Dir"
@@ -121,7 +122,7 @@ filter='*' #hard time with this because star is expanding to files list before g
 if [[ -z "$dir" ]] || [[ -z "$search" ]] || [[ -z "$replace" ]]; then
 	  echo ""
 	  echo "ERROR: pass in all required variables"
-      echo "usage: " $0 "directory" "filter" "search" "replace"
+      echo "usage: " $0 "directory" "search" "replace"
 	  echo ""
 	  exit
 fi
@@ -130,8 +131,8 @@ fi
 backup_directory $dir
 if [ $? -eq 0 ]; then
     echo "Backup succeeded"
-    rename_files $dir $search $replace
     replace_content $dir $search $replace
+    rename_files $dir $search $replace
 else
     echo "Backup failed"
 fi
