@@ -2,17 +2,18 @@
 
 # Author: Joel Holder
 # Description:  
-#				This script can be used to make filesystem changes changes on mass.  It will drill through directory heirarchies and modify names and content.
+#   This script can be used to make filesystem changes changes on mass.  It will drill through directory heirarchies and modify names and content.
 #
-#				Does the following things:
-#				1. recursively opens all text files in a directory and replaces $search with $replace in content.  
-#				2. recursively renames files in a directory by replacing $search with $replace in file and directory names.
+#	Does the following things:
+#		1. recursively opens all text files in a directory and replaces $search with $replace in content.  
+#		2. recursively renames files in a directory by replacing $search with $replace in file and directory names.
 #
-# Example Usage: converter.sh "./project" "foo" "bar"
+# Example Usage: 
+# 		converter.sh "./project" "foo" "bar"
 #
 # Note On Scoping with find:
-#   use + for all files
-#   use \; for first file
+#   	use + for all files
+#   	use \; for first file
 
 
 replace_content() {
